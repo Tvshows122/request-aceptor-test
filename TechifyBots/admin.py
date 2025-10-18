@@ -31,7 +31,7 @@ def parse_button_markup(text: str):
 async def total_users(client, message):
     try:
         users = await tb.get_all_users()
-        await message.reply(f"👥 **Total Users:** {len(users)}",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎭 𝖢𝗅𝗈𝗌𝖾", callback_data="close")]]))
+        await message.reply(f"👥 **Total Users:** {len(users)}")
     except Exception as e:
         r=await message.reply(f"❌ *Error:* `{str(e)}`")
         await asyncio.sleep(30)
@@ -80,6 +80,4 @@ async def broadcasting_func(client: Client, message: Message):
         await msg.edit(f"Total: {i + 1}\nCompleted: {completed}\nFailed: {failed}")
         await asyncio.sleep(0.1)
     await msg.edit(
-        f"😶‍🌫 <b>Broadcast Completed</b>\n\n👥 Total Users: <code>{len(users_list)}</code>\n✅ Successful: <code>{completed}</code>\n🤯 Failed: <code>{failed}</code>",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎭 𝖢𝗅𝗈𝗌𝖾", callback_data="close")]])
-    )
+        f"<b>Broadcast Completed</b>\n\n👥 Total Users: <code>{len(users_list)}</code>\nSuccessful: <code>{completed}</code>\n Failed: <code>{failed}</code>")
