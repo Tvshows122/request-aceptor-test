@@ -30,7 +30,7 @@ async def logout(client, message):
 async def main(bot: Client, message: Message):
     if await get_maintenance() and message.from_user.id != ADMIN:
         await message.delete()
-        return await message.reply_text("**🛠️ Bot is Under Maintenance**", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Support", user_id=int(ADMIN))]]))
+        return await message.reply_text("**🛠️ Bot is Under Maintenance**")
     user_id = message.from_user.id
     session = await tb.get_session(user_id)
     if session is not None:
@@ -38,7 +38,7 @@ async def main(bot: Client, message: Message):
         return
     phone_number_msg = await bot.ask(
         chat_id=user_id,
-        text="<b>Please send your phone number which includes country code</b>\n<b>Example:</b> <code>+13124562345, +9171828181889</code>"
+        text="<b>Please send your phone number which includes country code</b>\n<b>Example:</b> <code>+91**********</code>"
     )
     if phone_number_msg.text == '/cancel':
         return await phone_number_msg.reply('<b>Process cancelled!</b>')
@@ -68,7 +68,7 @@ async def main(bot: Client, message: Message):
     except SessionPasswordNeeded:
         two_step_msg = await bot.ask(
             user_id,
-            '**Two-step verification is enabled. Please send your password.**\n\n**Enter /cancel to cancel.**',
+            '**Two-step verification is enabled. Please send your 2FA password.**\n\n**Enter /cancel to cancel.**',
             filters=filters.text,
             timeout=300
         )
@@ -88,5 +88,5 @@ async def main(bot: Client, message: Message):
         return await message.reply_text(f"<b>ERROR IN LOGIN:</b> `{e}`")
     await bot.send_message(
         user_id,
-        "<b>Account logged in successfully.\n\nIf you get any AUTH KEY related error, use /logout and /login again.</b>"
+        "<b>Account logged in successfully.\n\nIf you get any error, use /logout and /login again.</b>"
     )
