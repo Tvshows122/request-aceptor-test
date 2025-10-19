@@ -77,41 +77,111 @@ async def help_cmd(client, message):
 @Client.on_message(filters.command('accept') & filters.private)
 async def accept(client, message):
     show = await message.reply("**Please Wait.....**")
+
+    # Get saved session for logged-in user
     user_data = await tb.get_session(message.from_user.id)
     if user_data is None:
         return await show.edit("**To accept join requests, please /login first.**")
+
+    # Connect with user session
     try:
         acc = Client("joinrequest", session_string=user_data, api_id=API_ID, api_hash=API_HASH)
         await acc.connect()
-    except:
+    except Exception:
         return await show.edit("**Your login session has expired. Use /logout first, then /login again.**")
-    await show.edit("**Forward a message from your Channel or Group (with forward tag).\n\nMake sure your logged-in account is an admin there with full rights.**")
+
+    # Ask admin to forward message from group/channel
+    await show.edit(
+        "**Forward a message from your Channel or Group (with forward tag).**\n\n"
+        "**Make sure your logged-in account is an admin there with full rights.**"
+    )
+
     fwd_msg = await client.listen(message.chat.id)
+
     if fwd_msg.forward_from_chat and fwd_msg.forward_from_chat.type not in [enums.ChatType.PRIVATE, enums.ChatType.BOT]:
         chat_id = fwd_msg.forward_from_chat.id
         try:
             info = await acc.get_chat(chat_id)
-        except:
+        except Exception:
             return await show.edit("**Error: Ensure your account is admin in this Channel/Group with required rights.**")
     else:
         return await message.reply("**Message not forwarded from a valid Channel/Group.**")
+
     await fwd_msg.delete()
     msg = await show.edit("**Accepting all join requests... Please wait.**")
+
     try:
+        total_approved = 0
         while True:
-            await acc.approve_all_chat_join_requests(chat_id)
-            await asyncio.sleep(1)
+            # Get pending join requests
             join_requests = [req async for req in acc.get_chat_join_requests(chat_id)]
-            for req in join_requests:
-                try:
-                    await add_user_safe(req.from_user)
-                except Exception as e:
-                    print(f"⚠️ Failed to add bulk approved user {req.from_user.id}: {e}")
             if not join_requests:
                 break
-        await msg.edit("**✅ Successfully accepted all join requests.**")
+
+            for req in join_requests:
+                try:
+                    # Approve the join request
+                    await acc.approve_chat_join_request(chat_id, req.from_user.id)
+                    total_approved += 1
+
+                    # Add approved user to DB
+                    try:
+                        user_name = req.from_user.first_name or "Unknown"
+                        await tb.add_user(req.from_user.id, user_name)
+                    except Exception as e:
+                        print(f"⚠️ Failed to add user {req.from_user.id} to DB: {e}")
+
+                except Exception as e:
+                    print(f"⚠️ Error approving {req.from_user.id}: {e}")
+
+            await asyncio.sleep(1)  # to avoid FloodWait
+
+        await msg.edit(f"**✅ Successfully accepted all join requests.**\n\n👥 Total Approved: {total_approved}")
+
     except Exception as e:
-        await msg.edit(f"**An error occurred:** `{str(e)}`")
+        await msg.edit(f"**❌ An error occurred:** `{str(e)}`")
+
+    finally:
+        await acc.disconnect()
+
+# @Client.on_message(filters.command('accept') & filters.private)
+# async def accept(client, message):
+#     show = await message.reply("**Please Wait.....**")
+#     user_data = await tb.get_session(message.from_user.id)
+#     if user_data is None:
+#         return await show.edit("**To accept join requests, please /login first.**")
+#     try:
+#         acc = Client("joinrequest", session_string=user_data, api_id=API_ID, api_hash=API_HASH)
+#         await acc.connect()
+#     except:
+#         return await show.edit("**Your login session has expired. Use /logout first, then /login again.**")
+#     await show.edit("**Forward a message from your Channel or Group (with forward tag).\n\nMake sure your logged-in account is an admin there with full rights.**")
+#     fwd_msg = await client.listen(message.chat.id)
+#     if fwd_msg.forward_from_chat and fwd_msg.forward_from_chat.type not in [enums.ChatType.PRIVATE, enums.ChatType.BOT]:
+#         chat_id = fwd_msg.forward_from_chat.id
+#         try:
+#             info = await acc.get_chat(chat_id)
+#         except:
+#             return await show.edit("**Error: Ensure your account is admin in this Channel/Group with required rights.**")
+#     else:
+#         return await message.reply("**Message not forwarded from a valid Channel/Group.**")
+#     await fwd_msg.delete()
+#     msg = await show.edit("**Accepting all join requests... Please wait.**")
+#     try:
+#         while True:
+#             await acc.approve_all_chat_join_requests(chat_id)
+#             await asyncio.sleep(1)
+#             join_requests = [req async for req in acc.get_chat_join_requests(chat_id)]
+#             for req in join_requests:
+#                 try:
+#                     await add_user_safe(req.from_user)
+#                 except Exception as e:
+#                     print(f"⚠️ Failed to add bulk approved user {req.from_user.id}: {e}")
+#             if not join_requests:
+#                 break
+#         await msg.edit("**✅ Successfully accepted all join requests.**")
+#     except Exception as e:
+#         await msg.edit(f"**An error occurred:** `{str(e)}`")
 
 @Client.on_chat_join_request()
 async def approve_new(client, m):
