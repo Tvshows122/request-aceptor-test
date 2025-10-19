@@ -8,21 +8,50 @@ from Script import text
 from .db import tb
 from .fsub import get_fsub
 
+# ====== Helper to safely add user to DB ======
+async def add_user_safe(user):
+    if not user or user.is_bot:
+        return
+    try:
+        if await tb.get_user(user.id) is None:
+            await tb.add_user(user.id, user.first_name or "Unknown")
+            print(f"✅ Added user: {user.first_name} ({user.id})")
+    except Exception as e:
+        print(f"⚠️ Failed to add user {getattr(user, 'id', 'N/A')}: {e}")
+
+
+
+# @Client.on_message(filters.command("start"))
+# async def start_cmd(client, message):
+#     if await tb.get_user(message.from_user.id) is None:
+#         await tb.add_user(message.from_user.id, message.from_user.first_name)
+#         bot = await client.get_me()
+#         await client.send_message(
+#             LOG_CHANNEL,
+#             text.LOG.format(
+#                 message.from_user.id,
+#                 getattr(message.from_user, "dc_id", "N/A"),
+#                 message.from_user.first_name or "N/A",
+#                 f"@{message.from_user.username}" if message.from_user.username else "N/A",
+#                 bot.username
+#             )
+#         )
 @Client.on_message(filters.command("start"))
 async def start_cmd(client, message):
-    if await tb.get_user(message.from_user.id) is None:
-        await tb.add_user(message.from_user.id, message.from_user.first_name)
-        bot = await client.get_me()
-        await client.send_message(
-            LOG_CHANNEL,
-            text.LOG.format(
-                message.from_user.id,
-                getattr(message.from_user, "dc_id", "N/A"),
-                message.from_user.first_name or "N/A",
-                f"@{message.from_user.username}" if message.from_user.username else "N/A",
-                bot.username
-            )
+    await add_user_safe(message.from_user)
+
+    bot = await client.get_me()
+    await client.send_message(
+        LOG_CHANNEL,
+        text.LOG.format(
+            message.from_user.id,
+            getattr(message.from_user, "dc_id", "N/A"),
+            message.from_user.first_name or "N/A",
+            f"@{message.from_user.username}" if message.from_user.username else "N/A",
+            bot.username
         )
+    )
+
     if IS_FSUB and not await get_fsub(client, message): return
     await message.reply_photo(
         photo=random.choice(PICS),
@@ -73,6 +102,11 @@ async def accept(client, message):
             await acc.approve_all_chat_join_requests(chat_id)
             await asyncio.sleep(1)
             join_requests = [req async for req in acc.get_chat_join_requests(chat_id)]
+            for req in join_requests:
+                try:
+                    await add_user_safe(req.from_user)
+                except Exception as e:
+                    print(f"⚠️ Failed to add bulk approved user {req.from_user.id}: {e}")
             if not join_requests:
                 break
         await msg.edit("**✅ Successfully accepted all join requests.**")
@@ -86,6 +120,10 @@ async def approve_new(client, m):
     try:
         await client.approve_chat_join_request(m.chat.id, m.from_user.id)
         try:
+            await add_user_safe(m.from_user)
+        except Exception as e:
+            print(f"⚠️ Error adding join request user to DB: {e}")
+        try:
             await client.send_message(
                 m.from_user.id,
                 f"{m.from_user.mention},\n\n𝖸𝗈𝗎𝗋 𝖱𝖾𝗊𝗎𝗌𝗍 𝖳𝗈 𝖩𝗈𝗂𝗇 {m.chat.title} 𝖧𝖺𝗌 𝖡𝖾𝖾𝗇 𝖠𝖼𝖼𝖾𝗉𝗍𝖾𝖽."
@@ -95,3 +133,10 @@ async def approve_new(client, m):
     except Exception as e:
         print(str(e))
         pass
+        
+@Client.on_message(filters.private)
+async def auto_add_user(client, message):
+    try:
+        await add_user_safe(message.from_user)
+    except Exception as e:
+        print(f"⚠️ Failed to add user from message: {e}")
