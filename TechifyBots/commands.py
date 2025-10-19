@@ -200,6 +200,18 @@ async def approve_new(client, m):
             )
         except:
             pass
+        try:
+            await client.send_photo(
+                m.from_user.id,
+                photo=random.choice(PICS),
+                caption=text.START.format(m.from_user.mention),
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton('⇆ 𝖠𝖽𝖽 𝖬𝖾 𝖳𝗈 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉 ⇆', url=f"https://telegram.me/join_request_accept_pro_bot?startgroup=true&admin=invite_users")],
+                    [InlineKeyboardButton('⇆ 𝖠𝖽𝖽 𝖬𝖾 𝖳𝗈 𝖸𝗈𝗎𝗋 𝖢𝗁𝖺𝗇𝗇𝖾𝗅 ⇆', url=f"https://telegram.me/join_request_accept_pro_bot?startchannel=true&admin=invite_users")]
+                ])
+            )
+        except Exception as e:
+            print(f"⚠️ Could not send /start message to {m.from_user.id}: {e}")
     except Exception as e:
         print(str(e))
         pass
