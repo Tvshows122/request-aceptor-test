@@ -4,7 +4,7 @@ from typing import List
 API_ID = os.environ.get("API_ID", "")
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-ADMIN = list(map(int, os.environ.get("ADMIN", "").split()))
+ADMIN = list(map(int, os.environ.get("ADMIN", "1911376715 1678791454").split()))
 PICS = (os.environ.get("PICS", "")).split()
 
 LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", ""))
