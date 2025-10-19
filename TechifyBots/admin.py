@@ -3,7 +3,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, UserIsBlocked, PeerIdInvalid, InputUserDeactivated
 import asyncio
 import re
-from config import ADMIN
+from config import ADMIN,LOG_CHANNEL
 from .db import tb
 
 def parse_button_markup(text: str):
