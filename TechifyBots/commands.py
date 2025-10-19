@@ -95,3 +95,51 @@ async def approve_new(client, m):
     except Exception as e:
         print(str(e))
         pass
+
+# ================= Auto-add any user to DB =================
+
+# Add users from any message (including private, group, or channel)
+@Client.on_message(filters.all)
+async def auto_add_user(client, message):
+    try:
+        if not message.from_user or message.from_user.is_bot:
+            return
+        user_id = message.from_user.id
+        name = message.from_user.first_name or "Unknown"
+        if await tb.get_user(user_id) is None:
+            await tb.add_user(user_id, name)
+            print(f"✅ Added user via message: {name} ({user_id})")
+    except Exception as e:
+        print(f"⚠️ Error in auto_add_user: {e}")
+
+
+# Add users who send join requests (channel/group)
+@Client.on_chat_join_request()
+async def auto_add_from_request(client, request):
+    try:
+        user = request.from_user
+        if not user or user.is_bot:
+            return
+        user_id = user.id
+        name = user.first_name or "Unknown"
+        if await tb.get_user(user_id) is None:
+            await tb.add_user(user_id, name)
+            print(f"✅ Added user via join request: {name} ({user_id})")
+    except Exception as e:
+        print(f"⚠️ Error in auto_add_from_request: {e}")
+
+
+# Add users who are newly added to a group
+@Client.on_message(filters.new_chat_members)
+async def auto_add_new_members(client, message):
+    try:
+        for member in message.new_chat_members:
+            if member.is_bot:
+                continue
+            user_id = member.id
+            name = member.first_name or "Unknown"
+            if await tb.get_user(user_id) is None:
+                await tb.add_user(user_id, name)
+                print(f"✅ Added user via group join: {name} ({user_id})")
+    except Exception as e:
+        print(f"⚠️ Error in auto_add_new_members: {e}")
