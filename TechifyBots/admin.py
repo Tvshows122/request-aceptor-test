@@ -33,9 +33,11 @@ async def total_users(client, message):
         users = await tb.get_all_users()
         await message.reply(f"👥 **Total Users:** {len(users)}")
     except Exception as e:
-        r=await message.reply(f"❌ *Error:* `{str(e)}`")
-        await asyncio.sleep(30)
-        await r.delete()
+        err = f"❌ Error in /stats: {str(e)}"
+        print(err)
+        await client.send_message(LOG_CHANNEL, err)
+        await message.reply("⚠️ Something went wrong while fetching stats.")
+
 
 @Client.on_message(filters.command("broadcast") & filters.private & filters.user(ADMIN))
 async def broadcasting_func(client: Client, message: Message):
@@ -44,81 +46,93 @@ async def broadcasting_func(client: Client, message: Message):
 
     msg = await message.reply_text("Processing broadcast...")
 
-    to_copy_msg = message.reply_to_message
-    users_list = await tb.get_all_users()
+    try:
+        to_copy_msg = message.reply_to_message
+        users_list = await tb.get_all_users()
 
-    completed = failed = blocked = deactivated = invalid = other = 0
-    raw_text = to_copy_msg.caption or to_copy_msg.text or ""
-    reply_markup, cleaned_text = parse_button_markup(raw_text)
+        completed = failed = blocked = deactivated = invalid = other = 0
+        raw_text = to_copy_msg.caption or to_copy_msg.text or ""
+        reply_markup, cleaned_text = parse_button_markup(raw_text)
 
-    for i, user in enumerate(users_list):
-        user_id = user.get("user_id")
-        if not user_id:
-            continue
+        for i, user in enumerate(users_list):
+            user_id = user.get("user_id")
+            if not user_id:
+                continue
 
-        try:
-            # send text / photo / video / doc based on message type
-            if to_copy_msg.text:
-                await client.send_message(user_id, cleaned_text, reply_markup=reply_markup)
-            elif to_copy_msg.photo:
-                await client.send_photo(user_id, to_copy_msg.photo.file_id, caption=cleaned_text, reply_markup=reply_markup)
-            elif to_copy_msg.video:
-                await client.send_video(user_id, to_copy_msg.video.file_id, caption=cleaned_text, reply_markup=reply_markup)
-            elif to_copy_msg.document:
-                await client.send_document(user_id, to_copy_msg.document.file_id, caption=cleaned_text, reply_markup=reply_markup)
-            else:
-                await to_copy_msg.copy(user_id)
-            completed += 1
-
-        except UserIsBlocked:
-            blocked += 1
-            failed += 1
-            await tb.delete_user(user_id)
-
-        except InputUserDeactivated:
-            deactivated += 1
-            failed += 1
-            await tb.delete_user(user_id)
-
-        except PeerIdInvalid:
-            invalid += 1
-            failed += 1
-            await tb.delete_user(user_id)
-
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
             try:
-                await to_copy_msg.copy(user_id)
+                if to_copy_msg.text:
+                    await client.send_message(user_id, cleaned_text, reply_markup=reply_markup)
+                elif to_copy_msg.photo:
+                    await client.send_photo(user_id, to_copy_msg.photo.file_id, caption=cleaned_text, reply_markup=reply_markup)
+                elif to_copy_msg.video:
+                    await client.send_video(user_id, to_copy_msg.video.file_id, caption=cleaned_text, reply_markup=reply_markup)
+                elif to_copy_msg.document:
+                    await client.send_document(user_id, to_copy_msg.document.file_id, caption=cleaned_text, reply_markup=reply_markup)
+                else:
+                    await to_copy_msg.copy(user_id)
                 completed += 1
-            except:
+
+            except UserIsBlocked:
+                blocked += 1
+                failed += 1
+                await tb.delete_user(user_id)
+
+            except InputUserDeactivated:
+                deactivated += 1
+                failed += 1
+                await tb.delete_user(user_id)
+
+            except PeerIdInvalid:
+                invalid += 1
+                failed += 1
+                await tb.delete_user(user_id)
+
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+                try:
+                    await to_copy_msg.copy(user_id)
+                    completed += 1
+                except:
+                    failed += 1
+                    other += 1
+
+            except Exception as e:
+                print(f"Broadcast to {user_id} failed: {e}")
                 failed += 1
                 other += 1
 
-        except Exception as e:
-            print(f"Broadcast to {user_id} failed: {e}")
-            failed += 1
-            other += 1
+            if (i + 1) % 5 == 0:
+                await msg.edit(f"📢 Broadcasting...\n✅ Sent: {completed} | ❌ Failed: {failed}")
 
-        # update live progress
-        if (i + 1) % 5 == 0:
-            await msg.edit(
-                f"📢 Broadcasting...\n"
-                f"Processed: <code>{i + 1}</code> / <code>{len(users_list)}</code>\n"
-                f"✅ Sent: <code>{completed}</code> | ❌ Failed: <code>{failed}</code>"
-            )
-        await asyncio.sleep(0.1)
+        final_text = (
+            f"<b>✅ Broadcast Completed</b>\n\n"
+            f"👥 Total Users: <code>{len(users_list)}</code>\n"
+            f"✅ Successful: <code>{completed}</code>\n"
+            f"❌ Failed: <code>{failed}</code>\n\n"
+            f"🚫 Blocked: <code>{blocked}</code>\n"
+            f"🗑️ Deactivated: <code>{deactivated}</code>\n"
+            f"❓ Invalid ID: <code>{invalid}</code>\n"
+            f"⚠️ Other Errors: <code>{other}</code>"
+        )
+        await msg.edit(final_text)
+        await client.send_message(LOG_CHANNEL, final_text)
 
-    # final summary message
-    await msg.edit(
-        f"<b>✅ Broadcast Completed</b>\n\n"
-        f"👥 Total Users: <code>{len(users_list)}</code>\n"
-        f"✅ Successful: <code>{completed}</code>\n"
-        f"❌ Failed: <code>{failed}</code>\n\n"
-        f"🚫 Blocked: <code>{blocked}</code>\n"
-        f"🗑️ Deactivated: <code>{deactivated}</code>\n"
-        f"❓ Invalid ID: <code>{invalid}</code>\n"
-        f"⚠️ Other Errors: <code>{other}</code>"
-    )
+    except Exception as e:
+        err = f"❌ Broadcast failed: {str(e)}"
+        print(err)
+        await client.send_message(LOG_CHANNEL, err)
+        await msg.edit(err)
+
+
+# @Client.on_message(filters.command("stats") & filters.private & filters.user(ADMIN))
+# async def total_users(client, message):
+#     try:
+#         users = await tb.get_all_users()
+#         await message.reply(f"👥 **Total Users:** {len(users)}")
+#     except Exception as e:
+#         r=await message.reply(f"❌ *Error:* `{str(e)}`")
+#         await asyncio.sleep(30)
+#         await r.delete()
 
 # @Client.on_message(filters.command("broadcast") & filters.private & filters.user(ADMIN))
 # async def broadcasting_func(client: Client, message: Message):
